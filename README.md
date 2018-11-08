@@ -25,3 +25,6 @@ We should implement [**Go Text Protocol**](http://www.lysator.liu.se/~gunnar/gtp
 ### Datasets
 
 1. https://github.com/yenw/computer-go-dataset#8-leela-zero-dataset
+
+### SpreadSheet
+https://docs.google.com/spreadsheets/d/1-NjOhGRpJHwQ9cG-g5bMRXGC9uE6M0wyL5B4njBk6tU/edit?usp=sharing
