@@ -50,12 +50,12 @@ def ConvertSgfToTrainingData(filename, all_data):
     black = np.zeros((19,19),dtype = bool)
     white = np.zeros((19,19),dtype = bool)
     empty = np.ones((19,19),dtype = bool)
-    level = (1,1)
-    if(b_level[:-1] == "d"):
+    level = [1,1]
+    if(b_level[-1] == "d"):
         level[0] = int(b_level[:-1])
-    if(b_level[:-1] == "d"):
+    if(b_level[-1] == "d"):
         level[1] = int(w_level[:-1])
-
+    level = tuple(level)
     for node in sgf_game.get_main_sequence():
         who , next = node.get_move()
         if next != None:
