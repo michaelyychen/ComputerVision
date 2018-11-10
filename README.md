@@ -33,4 +33,4 @@ https://docs.google.com/spreadsheets/d/1-NjOhGRpJHwQ9cG-g5bMRXGC9uE6M0wyL5B4njBk
 ### Handle sgf
         pip3 install sgfmill
 ### Processed Data
-    https://drive.google.com/drive/folders/1qG6xNuNH-NSjKZMff_PC1SHYkcV0dfeo?usp=sharing
+https://drive.google.com/drive/folders/1qG6xNuNH-NSjKZMff_PC1SHYkcV0dfeo?usp=sharing
