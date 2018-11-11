@@ -11,7 +11,7 @@ from torch.autograd import Variable
 parser = argparse.ArgumentParser(description='PyTorch GTSRB example')
 parser.add_argument('--data', type=str, default='pickles', metavar='D',
                     help="folder where data is located. train_data.zip and test_data.zip need to be found in the folder")
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
@@ -25,6 +25,8 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--model', type=str, default='None', metavar='M',
                     help="the model file to be evaluated. Usually it is of the form model_X.pth")
+parser.add_argument('--n_dataset', type=int, default=1, metavar='M',
+                    help="how many datasets to load, from 1 to 16. each dataset contains 300,000,000 entries")
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -41,10 +43,12 @@ from load import GoDataset
 #                   ]
 extra_features = []
 
+# Start Loading Data
+training_data_name = [args.data + '/all_data_{0}.pickle'.format(i) for i in range(1,args.n_dataset+1)]
+datasets = [GoDataset(filename,extra_features = extra_features) for filename in training_data_name]
+after_concat = torch.utils.data.ConcatDataset(datasets)
 
-train_loader = torch.utils.data.DataLoader(
-    GoDataset(args.data + '/all_data_1.pickle',
-                         extra_features = extra_features),
+train_loader = torch.utils.data.DataLoader(after_concat,
     batch_size=args.batch_size, shuffle=True, num_workers=1)
 
 val_loader = torch.utils.data.DataLoader(
@@ -52,9 +56,20 @@ val_loader = torch.utils.data.DataLoader(
                          extra_features = extra_features),
     batch_size=args.batch_size, shuffle=False, num_workers=1)
 
+### Counting Input Channels
+input_channel = 3
+if "rank_of_current_player" in extra_features:
+    input_channel +=9
+if "rank_of_opponent" in extra_features:
+    input_channel +=9
+if "isBlack" in extra_features:
+    input_channel +=1
+if "isWhite" in extra_features:
+    input_channel +=1
+
 ### Neural Network and Optimizer
 from model import GoNet
-input_channel = 3   # Based on the number of feature selected
+
 model = GoNet(input_channel)
 
 if(args.model is not 'None'):
