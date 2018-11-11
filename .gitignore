@@ -1,6 +1,8 @@
 *.sgf
 .vscode/
 *.pickle
+*.ipynb
+*.pyc
 edison
 
 .DS_Store
