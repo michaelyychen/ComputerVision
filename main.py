@@ -33,22 +33,26 @@ torch.manual_seed(args.seed)
 from load import GoDataset
 
 ### Setting extra_features
-# extra_features = ["rank_of_current_player","rank_of_opponent","isBlack","isWhite"]
+### Default [b,w,e] takes 3 channels
+# extra_features = ["rank_of_current_player",   # add 9 channels
+#                   "rank_of_opponent",         # add 9 channels
+#                   "isBlack",                  # add 1 channel
+#                   "isWhite"                   # add 1 channel
+#                   ]
 extra_features = []
+
 
 train_loader = torch.utils.data.DataLoader(
     GoDataset(args.data + '/all_data_1.pickle',
                          extra_features = extra_features),
     batch_size=args.batch_size, shuffle=True, num_workers=1)
+
 val_loader = torch.utils.data.DataLoader(
     GoDataset(args.data + '/all_data_17.pickle',
                          extra_features = extra_features),
     batch_size=args.batch_size, shuffle=False, num_workers=1)
 
 ### Neural Network and Optimizer
-
-# device = torch.device('cuda')
-# device = torch.device('cpu')
 from model import GoNet
 input_channel = 3   # Based on the number of feature selected
 model = GoNet(input_channel)
