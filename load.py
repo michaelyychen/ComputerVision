@@ -28,9 +28,6 @@ class GoDataset(Dataset):
         """
         Args:
             pickle_file (string): Path to the pickle file.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-
             extra_features (list of string): Features other than b,w,e.
                 Could be
                     "rank_of_current_player": add 9 channels
