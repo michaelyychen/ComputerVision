@@ -53,12 +53,15 @@ class GoNet(nn.Module):
         super(GoNet, self).__init__()
         self.res1 = BasicResBlock(inChannel,channel_size)
 
-        self.block1 = ResBlock(3,channel_size,0.5)
+        self.block1 = ResBlock(4,channel_size,0.5)
 
-        self.block2 = ResBlock(4,channel_size,0.5)
+        self.block2 = ResBlock(7,channel_size,0.5)
 
-        self.fc1 = nn.Linear(1600, 400)
-        self.fc2 = nn.Linear(400, nclasses)
+        self.block3 = ResBlock(7,channel_size,0.5)
+
+        self.block4 = ResBlock(4,channel_size,0.5)
+
+        self.fc1 = nn.Linear(3*3*channel_size, nclasses)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension\n",
@@ -68,17 +71,22 @@ class GoNet(nn.Module):
         return num_features
 
     def forward(self, x):
+        
         x = self.res1(x)
-        # x = self.bn1(x)
 
         x = self.block1(x)
 
         x = F.max_pool2d(x,kernel_size = 3, stride = 2, padding=1)
         x = self.block2(x)
 
-        x = F.max_pool2d(F.relu(x),kernel_size = 3, stride = 2, padding=1)
+        x = F.max_pool2d(x,kernel_size = 3, stride = 2, padding=1)
+        x = self.block3(x)
+
+        x = F.max_pool2d(x,kernel_size = 3, stride = 2, padding=1)
+        x = self.block4(x)
+
+        x = F.relu(x)
         x = x.view(-1, self.num_flat_features(x))
        
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = self.fc1(x)
         return F.log_softmax(x,dim=1)

@@ -78,8 +78,8 @@ if __name__ == "__main__":
         "b":  np.zeros((19,19),dtype = bool),
         "w":  np.zeros((19,19),dtype = bool),
         "e":  np.ones((19,19),dtype = bool),
-        "b_w_level":(8,3),
-        "isBlack": True
+        "b_w_level":(9,9),
+        "isBlack": False
     }
     extra_features = ["rank_of_current_player","isBlack"]
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         input_channel +=1
     from model import GoNet
     model = GoNet(input_channel)
-    model_param = "model_10.pth"
+    model_param = "model_5.pth"
     print(predict(game,extra_features,model_param,model))
 
     
