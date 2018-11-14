@@ -55,10 +55,10 @@ class GoNet(nn.Module):
 
         self.block1 = ResBlock(3,channel_size,0.5)
 
-        self.block2 = ResBlock(3,channel_size,0.5)
+        self.block2 = ResBlock(4,channel_size,0.5)
 
-        self.fc1 = nn.Linear(1600, 500)
-        self.fc2 = nn.Linear(500, nclasses)
+        self.fc1 = nn.Linear(1600, 400)
+        self.fc2 = nn.Linear(400, nclasses)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension\n",

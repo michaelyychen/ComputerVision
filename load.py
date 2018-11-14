@@ -10,9 +10,9 @@ import torch
 #  "b":[][],
 #  "w":[][],
 #  "e":[][],
-#  "b_w_level":(),
+#  "b_w_level":(int,int),
 #  "isBlack": bool,
-#  "next":()
+#  "next":(int,int)
 # }
 
 def load_all_data(filename = "all__data.pickle"):

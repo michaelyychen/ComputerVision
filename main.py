@@ -11,11 +11,11 @@ from torch.autograd import Variable
 parser = argparse.ArgumentParser(description='PyTorch GTSRB example')
 parser.add_argument('--data', type=str, default='pickles', metavar='D',
                     help="folder where data is located. train_data.zip and test_data.zip need to be found in the folder")
-parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                     help='learning rate (default: 0.01)')
 parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                     help='SGD momentum (default: 0.5)')
@@ -41,7 +41,7 @@ from load import GoDataset
 #                   "isBlack",                  # add 1 channel
 #                   "isWhite"                   # add 1 channel
 #                   ]
-extra_features = []
+extra_features = ["rank_of_current_player","isBlack"]
 
 # Start Loading Data
 training_data_name = [args.data + '/all_data_{0}.pickle'.format(i) for i in range(1,args.n_dataset+1)]
@@ -69,8 +69,9 @@ if "isWhite" in extra_features:
 
 ### Neural Network and Optimizer
 from model import GoNet
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model = GoNet(input_channel)
+model = GoNet(input_channel).to(device)
 
 if(args.model is not 'None'):
     state_dict = torch.load(args.model)
@@ -82,7 +83,7 @@ optimizer = optim.Adam(model.parameters(), lr=args.lr)
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = Variable(data), Variable(target)
+        data, target = Variable(data).to(device), Variable(target).to(device)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
@@ -98,7 +99,7 @@ def validation():
     validation_loss = 0
     correct = 0
     for data, target in val_loader:
-        data, target = Variable(data,requires_grad =False ), Variable(target)
+        data, target = Variable(data,requires_grad =False).to(device), Variable(target).to(device)
         with torch.no_grad():
             output = model(data)
             validation_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
