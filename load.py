@@ -14,15 +14,6 @@ import torch
 #  "isBlack": bool,
 #  "next":(int,int)
 # }
-
-def load_all_data(filename = "all__data.pickle"):
-    try:
-        with open(filename,"rb") as f:
-            data = pickle.load(f)
-            return data
-    except IOError:
-        print("Error Occured")
-
 class GoDataset(Dataset):
     def __init__(self, pickle_file, extra_features = []):
         """

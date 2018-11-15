@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import os
+import pathlib
 from torch.autograd import Variable
 
 
@@ -21,12 +23,11 @@ parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                     help='SGD momentum (default: 0.5)')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
-parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+parser.add_argument('--log-interval', type=int, default=100, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--model', type=str, default='None', metavar='M',
                     help="the model file to be evaluated. Usually it is of the form model_X.pth")
-parser.add_argument('--n_dataset', type=int, default=1, metavar='M',
-                    help="how many datasets to load, from 1 to 16. each dataset contains 300,000,000 entries")
+
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -43,18 +44,18 @@ from load import GoDataset
 #                   ]
 extra_features = ["rank_of_current_player","isBlack"]
 
+
+train_files = [args.data + "/train/" + file for file in os.listdir(args.data + "/train") if pathlib.Path(file).suffix == ".pickle"]
+val_files = [args.data + "/val/" + file for file in os.listdir(args.data + "/val") if pathlib.Path(file).suffix == ".pickle"]
+
 # Start Loading Data
-training_data_name = [args.data + '/all_data_{0}.pickle'.format(i) for i in range(1,args.n_dataset+1)]
-datasets = [GoDataset(filename,extra_features = extra_features) for filename in training_data_name]
-after_concat = torch.utils.data.ConcatDataset(datasets)
 
-train_loader = torch.utils.data.DataLoader(after_concat,
-    batch_size=args.batch_size, shuffle=True, num_workers=1)
-
+val_datasets = [GoDataset(filename,extra_features = extra_features) for filename in val_files]
+val_after_concat = torch.utils.data.ConcatDataset(val_datasets)
 val_loader = torch.utils.data.DataLoader(
-    GoDataset(args.data + '/all_data_17.pickle',
-                         extra_features = extra_features),
-    batch_size=args.batch_size, shuffle=False, num_workers=1)
+                        val_after_concat,
+                        batch_size=args.batch_size,
+                         shuffle=False, num_workers=1)
 
 ### Counting Input Channels
 input_channel = 3
@@ -82,17 +83,25 @@ optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
 def train(epoch):
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = Variable(data).to(device), Variable(target).to(device)
-        optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % args.log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
+    total_file = len(train_files)
+    current = 1
+    for filename in train_files:
+        train_loader = torch.utils.data.DataLoader(
+            GoDataset(filename,extra_features = extra_features),
+                batch_size=args.batch_size, shuffle=True, num_workers=1)
+        for batch_idx, (data, target) in enumerate(train_loader):
+            data, target = Variable(data).to(device), Variable(target).to(device)
+            optimizer.zero_grad()
+            output = model(data)
+            loss = F.nll_loss(output, target)
+            loss.backward()
+            optimizer.step()
+            if batch_idx % args.log_interval == 0:
+                print('[{}/{}] Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    current,total_file,
+                    epoch, batch_idx * len(data), len(train_loader.dataset),
+                    100. * batch_idx / len(train_loader), loss.item()))
+        current +=1
 
 def validation():
     model.eval()
