@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import os
 import pathlib
+import time
 from torch.autograd import Variable
 
 
@@ -85,6 +86,7 @@ def train(epoch):
     model.train()
     total_file = len(train_files)
     current = 1
+    print("Epoch {} starts at ".format(epoch)+ time.asctime(time.localtime(time.time())))
     for filename in train_files:
         train_loader = torch.utils.data.DataLoader(
             GoDataset(filename,extra_features = extra_features),
@@ -115,16 +117,18 @@ def validation():
             pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
     validation_loss /= len(val_loader.dataset)
+    precent = "{:.2f}".format(100. * correct / len(val_loader.dataset))
     print('\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         validation_loss, correct, len(val_loader.dataset),
         100. * correct / len(val_loader.dataset)))
-    return validation_loss
+    return precent
 
 def main():
+    percent = "0"
     for epoch in range(1, args.epochs + 1):
         train(epoch)
-        validation()
-        model_file = 'model_' + str(epoch) + '.pth'
+        percent = validation()
+        model_file = 'model_' + str(epoch) +"_" + percent + '.pth'
         torch.save(model.state_dict(), model_file)
     print('\nSaved model to ' + model_file + '. You can run `python evaluate.py ' + model_file + '` to generate the Kaggle formatted csv file')
 if __name__ == '__main__':

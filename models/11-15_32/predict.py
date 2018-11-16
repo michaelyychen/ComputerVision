@@ -98,7 +98,7 @@ if __name__ == "__main__":
     from model import GoNet
     model = GoNet(input_channel)
 
-    model_param = "model_1_31%.pth"
+    model_param = "model_2_32%.pth"
 
     print(predict(game,extra_features,model_param,model))
 
