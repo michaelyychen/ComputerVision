@@ -53,15 +53,16 @@ class GoNet(nn.Module):
         super(GoNet, self).__init__()
         self.res1 = BasicResBlock(inChannel,channel_size)
 
-        self.block1 = ResBlock(4,channel_size)
+        self.block1 = ResBlock(8,channel_size)
 
-        self.block2 = ResBlock(7,channel_size)
+        self.block2 = ResBlock(15,channel_size)
 
-        self.block3 = ResBlock(7,channel_size)
+        self.block3 = ResBlock(15,channel_size)
 
-        self.block4 = ResBlock(4,channel_size)
+        self.block4 = ResBlock(6,channel_size)
 
-        self.fc1 = nn.Linear(3*3*channel_size, nclasses)
+        self.fc1 = nn.Linear(3*3*channel_size, 500)
+        self.fc2 = nn.Linear(500, nclasses)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension\n",
@@ -88,5 +89,6 @@ class GoNet(nn.Module):
         x = F.relu(x)
         x = x.view(-1, self.num_flat_features(x))
        
-        x = self.fc1(x)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
         return F.log_softmax(x,dim=1)

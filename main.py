@@ -43,7 +43,7 @@ from load import GoDataset
 #                   "isBlack",                  # add 1 channel
 #                   "isWhite"                   # add 1 channel
 #                   ]
-extra_features = ["rank_of_current_player","isBlack"]
+extra_features = ["isBlack"]
 
 
 train_files = [args.data + "/train/" + file for file in os.listdir(args.data + "/train") if pathlib.Path(file).suffix == ".pickle"]
