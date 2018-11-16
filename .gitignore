@@ -3,7 +3,6 @@
 *.pickle
 *.ipynb
 *.pyc
-*.pth
 edison
 
 .DS_Store
