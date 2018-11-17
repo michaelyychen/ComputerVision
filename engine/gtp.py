@@ -47,6 +47,9 @@ class GTPColor():
     def __str__(self):
         return "white" if self.color else "black"
     
+    def abbrev(self):
+        return "w" if self.color else "b"
+
     @staticmethod
     def fromString(s):
         ret = GTPColor(False)

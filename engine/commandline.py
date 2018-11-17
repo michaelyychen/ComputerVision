@@ -2,6 +2,9 @@
 
 from cmd import Cmd
 from gtp import *
+from engine import Random_Go_Engine
+
+engine = Random_Go_Engine()
 
 class GTPShell(Cmd):
     prompt = ""
@@ -64,6 +67,7 @@ class GTPShell(Cmd):
                 self._fail("boardsize not an integer")
 
     def do_clear_board(self, line):
+        engine.clearBoard()
         self._success()
 
     def do_komi(self, line):
@@ -82,14 +86,15 @@ class GTPShell(Cmd):
     def do_play(self, line):
         try:
             vec = GTPMove.fromString(line)
-            print(vec)
+            engine.play(vec)
+            self._success()
         except ValueError:
             self._fail("invalid color or coordinate")
 
     def do_genmove(self, line):
         c = GTPColor.fromString(line)
-        print(c)
-        self._success(str(GTPVertex(0,0)))
+        ret = engine.genmove(c)
+        self._success(str(ret))
 
     def default(self, line):
         self._fail("unknown command")
