@@ -35,8 +35,11 @@ class Random_Go_Engine():
 
     def genmove(self, color):
         while(True):
-            row = random.randrange(19)
-            col = random.randrange(19)
+            pos = random.randrange(19*19+1)
+            if pos == 19*19:
+                return GTPVertex(0,0,True)
+            row = pos//19
+            col = pos%19
             try:
                 print("Try ({} {})".format(row, col))
                 self.board.play(row, col, color.abbrev())

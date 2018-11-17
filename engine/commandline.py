@@ -2,9 +2,8 @@
 
 from cmd import Cmd
 from gtp import *
-from engine import Random_Go_Engine
 
-engine = Random_Go_Engine()
+engine = None
 
 class GTPShell(Cmd):
     prompt = ""
@@ -133,8 +132,19 @@ class GTPShell(Cmd):
         return stop
     
 
-if __name__=='__main__':
-    try:
-        GTPShell().cmdloop()
-    except Exception as e:
-        exit(1)
+if __name__=='__main__' and __package__ is None:
+    from sys import path
+    from os.path import dirname as dir
+
+    path.append(dir(path[0]))
+    __package__ = "models"
+    
+    # Random engine
+    #from engine import Random_Go_Engine
+    #engine = Random_Go_Engine()
+
+    # NN Engine
+    from models.NN_Go_Engine import NN_Go_Engine
+    engine = NN_Go_Engine()
+
+    GTPShell().cmdloop()

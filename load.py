@@ -86,4 +86,3 @@ class GoDataset(Dataset):
         
         return (torch.stack(features),label)
  
-

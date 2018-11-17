@@ -16,20 +16,25 @@ class GTPBoolean():
 class GTPVertex():
     '''Zero-based row col with (0,0) being at bottom-left
     '''
-    def __init__(self, a, b):
+    def __init__(self, a, b, isPass=False):
         if type(a) is not int or type(b) is not int:
             raise ValueError
         self.row = int(a)
         self.col = int(b)
+        self.isPass = isPass
         if self.row >= 25 or self.row < 0 or self.col >= 25 or self.col < 0:
             raise ValueError
     def __str__(self):
-        return chr(self.row + ord('A')) + str(self.col+1)
+        c = chr(self.row + ord('A')) if self.row < 8 else chr(self.row + 1 + ord('A'))
+        return "pass" if self.isPass else c + str(self.col+1)
     
     @staticmethod
     def fromString(s):
         if type(s) is not str:
             raise ValueError
+        if s == "pass":
+            ret = GTPVertex(0,0,True)
+            return ret
         c = ord(s[0].lower())
         if c == ord('i'):
             raise ValueError
