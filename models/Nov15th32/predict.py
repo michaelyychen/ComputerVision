@@ -3,7 +3,9 @@ import torch
 import numpy as np
 from torch.autograd import Variable
 
-def predict(game,extra_features,model_param_path,model):
+device = torch.device("cuda")
+
+def predict(game,extra_features,model):
     """
     Args:
         game (dict): { 
@@ -63,14 +65,13 @@ def predict(game,extra_features,model_param_path,model):
     
     data = torch.stack(features)
 
-    state_dict = torch.load(model_param_path,map_location='cpu')
-    model = model.cpu()
-    model.load_state_dict(state_dict)
-    model.eval()
+
     data = data.view(1, data.size(0), data.size(1), data.size(2))
     data = Variable(data,requires_grad =False)
+    model.eval()
+
     with torch.no_grad():
-            output = model(data)
+        output = model(data.to(device))
     return output
 
 if __name__ == "__main__":
@@ -99,7 +100,9 @@ if __name__ == "__main__":
     model = GoNet(input_channel)
 
     model_param = "model_2_32%.pth"
-
-    print(predict(game,extra_features,model_param,model))
+    state_dict = torch.load(model_param,map_location='cpu')
+    model = model.cpu()
+    model.load_state_dict(state_dict)
+    print(predict(game,extra_features,model))
 
     
