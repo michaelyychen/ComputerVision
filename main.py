@@ -7,12 +7,13 @@ import torch.optim as optim
 import os
 import pathlib
 import time
+from random import shuffle
 from torch.autograd import Variable
 
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch GTSRB example')
-parser.add_argument('--data', type=str, default='pickles', metavar='D',
+parser.add_argument('--data', type=str, default='../pickles', metavar='D',
                     help="folder where data is located. train_data.zip and test_data.zip need to be found in the folder")
 parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                     help='input batch size for training (default: 64)')
@@ -43,7 +44,7 @@ from load import GoDataset
 #                   "isBlack",                  # add 1 channel
 #                   "isWhite"                   # add 1 channel
 #                   ]
-extra_features = ["isBlack"]
+extra_features = ["rank_of_current_player","isBlack"]
 
 
 train_files = [args.data + "/train/" + file for file in os.listdir(args.data + "/train") if pathlib.Path(file).suffix == ".pickle"]
@@ -87,6 +88,7 @@ def train(epoch):
     total_file = len(train_files)
     current = 1
     print("Epoch {} starts at ".format(epoch)+ time.asctime(time.localtime(time.time())))
+    shuffle(train_files)
     for filename in train_files:
         train_loader = torch.utils.data.DataLoader(
             GoDataset(filename,extra_features = extra_features),
