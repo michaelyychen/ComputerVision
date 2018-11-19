@@ -87,17 +87,21 @@ def train(epoch):
     model.train()
     total_file = len(train_files)
     current = 1
+    train_loss = 0
+    num_of_data = 0
     print("Epoch {} starts at ".format(epoch)+ time.asctime(time.localtime(time.time())))
     shuffle(train_files)
     for filename in train_files:
         train_loader = torch.utils.data.DataLoader(
             GoDataset(filename,extra_features = extra_features),
                 batch_size=args.batch_size, shuffle=True, num_workers=1)
+        num_of_data +=len(train_loader.dataset)
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = Variable(data).to(device), Variable(target).to(device)
             optimizer.zero_grad()
             output = model(data)
             loss = F.nll_loss(output, target)
+            train_loss += loss
             loss.backward()
             optimizer.step()
             if batch_idx % args.log_interval == 0:
@@ -106,6 +110,8 @@ def train(epoch):
                     epoch, batch_idx * len(data), len(train_loader.dataset),
                     100. * batch_idx / len(train_loader), loss.item()))
         current +=1
+    train_loss /=num_of_data
+    return train_loss
 
 def validation():
     model.eval()
@@ -127,8 +133,9 @@ def validation():
 
 def main():
     percent = "0"
+    avg_training_loss = 0
     for epoch in range(1, args.epochs + 1):
-        train(epoch)
+        avg_training_loss = train(epoch)
         percent = validation()
         model_file = 'model_' + str(epoch) +"_" + percent + '.pth'
         torch.save(model.state_dict(), model_file)
