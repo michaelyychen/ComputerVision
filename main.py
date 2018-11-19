@@ -117,7 +117,7 @@ def train(epoch):
 
     return train_loss
 
-def validation():
+def validation(epoch):
     model.eval()
     validation_loss = 0
     correct = 0
@@ -143,7 +143,7 @@ def main():
     avg_training_loss = 0
     for epoch in range(1, args.epochs + 1):
         avg_training_loss = train(epoch)
-        percent = validation()
+        percent = validation(epoch)
         model_file = 'model_' + str(epoch) +"_" + percent + '.pth'
         torch.save(model.state_dict(), model_file)
     print('\nSaved model to ' + model_file + '. You can run `python evaluate.py ' + model_file + '` to generate the Kaggle formatted csv file')
