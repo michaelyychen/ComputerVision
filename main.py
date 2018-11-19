@@ -9,7 +9,7 @@ import pathlib
 import time
 from random import shuffle
 from torch.autograd import Variable
-
+import wandb
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch GTSRB example')
@@ -109,8 +109,12 @@ def train(epoch):
                     current,total_file,
                     epoch, batch_idx * len(data), len(train_loader.dataset),
                     100. * batch_idx / len(train_loader), loss.item()))
+                wandb.log({"training_loss": loss})
+
         current +=1
-    train_loss /=num_of_data
+    train_loss /= num_of_data
+    wandb.log({"epoch": epoch, "avg_training_loss": train_loss})
+
     return train_loss
 
 def validation():
@@ -129,9 +133,12 @@ def validation():
     print('\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         validation_loss, correct, len(val_loader.dataset),
         100. * correct / len(val_loader.dataset)))
+    wandb.log({"epoch" : epoch, "validation_loss": validation_loss})
     return precent
 
 def main():
+    wandb.init()
+    wandb.config.update(args)
     percent = "0"
     avg_training_loss = 0
     for epoch in range(1, args.epochs + 1):
