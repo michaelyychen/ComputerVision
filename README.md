@@ -4,8 +4,9 @@ This project implement a Go Engine.
 
 ## How to Wandb
 1. pip install wandb
-2. wandb init
-3. wandb run python main.py
+2. wandb login
+3. wandb init
+4. wandb run python main.py
 
 
 ## Implementation
