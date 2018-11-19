@@ -5,15 +5,15 @@ import torch.nn.functional as F
 nclasses = 361 # 19*19 
 channel_size = 64
 class BasicResBlock(nn.Module):
-    def __init__(self, in_dim,out_dim, dropout = None):
+    def __init__(self, in_dim,out_dim, dropout = None, kernel_size=3, padding=1):
         super(BasicResBlock, self).__init__()
         self.dropout_rate = dropout
         self.is_dim_equal = (in_dim == out_dim)
         self.bn1 = nn.BatchNorm2d(in_dim)
-        self.conv1 = nn.Conv2d(in_dim, out_dim, kernel_size=3,padding=1)
+        self.conv1 = nn.Conv2d(in_dim, out_dim, kernel_size=kernel_size,padding=padding)
 
         self.bn2 = nn.BatchNorm2d(out_dim)
-        self.conv2 = nn.Conv2d(out_dim, out_dim, kernel_size=3,padding=1)
+        self.conv2 = nn.Conv2d(out_dim, out_dim, kernel_size=kernel_size,padding=padding)
 
         
         if(self.is_dim_equal):
@@ -37,13 +37,13 @@ class BasicResBlock(nn.Module):
             return x_w+self.convShort(x)
 
 class ResBlock(nn.Module):
-    def __init__(self, num_of_layers, in_dim, dropout = None ):
+    def __init__(self, num_of_layers, in_dim, dropout = None, kernel_size=3, padding=1 ):
         super(ResBlock, self).__init__()
-        self.layer = self.create_layer(num_of_layers, in_dim,dropout)
-    def create_layer(self, num_of_layers, in_dim, dropout = None):
+        self.layer = self.create_layer(num_of_layers, in_dim,dropout = dropout,kernel_size=kernel_size, padding=padding )
+    def create_layer(self, num_of_layers, in_dim, dropout = None,kernel_size=3, padding=1):
         layers = []
         for i in range(int(num_of_layers)):
-            layers.append(BasicResBlock(in_dim,in_dim,dropout))
+            layers.append(BasicResBlock(in_dim,in_dim,dropout = dropout,kernel_size=kernel_size, padding=padding))
         return nn.Sequential(*layers)
     def forward(self, x):
         return self.layer(x)
@@ -51,18 +51,13 @@ class ResBlock(nn.Module):
 class GoNet(nn.Module):
     def __init__(self, inChannel):
         super(GoNet, self).__init__()
-        self.res1 = BasicResBlock(inChannel,channel_size)
+        self.res1 = BasicResBlock(inChannel,channel_size,kernel_size=5, padding=2)
 
-        self.block1 = ResBlock(8,channel_size)
+        self.block1 = ResBlock(10,channel_size,kernel_size=5, padding=2)
+        self.block2 = ResBlock(6,channel_size,kernel_size=3, padding=1)
 
-        self.block2 = ResBlock(15,channel_size)
-
-        self.block3 = ResBlock(15,channel_size)
-
-        self.block4 = ResBlock(6,channel_size)
-
-        self.fc1 = nn.Linear(3*3*channel_size, 500)
-        self.fc2 = nn.Linear(500, nclasses)
+        self.res2 =  BasicResBlock(channel_size,1,kernel_size=3, padding=1)
+ 
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension\n",
@@ -76,19 +71,10 @@ class GoNet(nn.Module):
         x = self.res1(x)
 
         x = self.block1(x)
-
-        x = F.max_pool2d(x,kernel_size = 3, stride = 2, padding=1)
         x = self.block2(x)
 
-        x = F.max_pool2d(x,kernel_size = 3, stride = 2, padding=1)
-        x = self.block3(x)
+        x = self.res2(x)
 
-        x = F.max_pool2d(x,kernel_size = 3, stride = 2, padding=1)
-        x = self.block4(x)
-
-        x = F.relu(x)
         x = x.view(-1, self.num_flat_features(x))
-       
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+
         return F.log_softmax(x,dim=1)
