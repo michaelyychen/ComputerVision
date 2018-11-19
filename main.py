@@ -108,7 +108,7 @@ def train(epoch):
                 print('[{}/{}] Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     current,total_file,
                     epoch, batch_idx * len(data), len(train_loader.dataset),
-                    100. * batch_idx / len(train_loader), loss.item()))
+                    100. * batch_idx / len(train_loader), loss.item()), flush=True)
                 wandb.log({"training_loss": loss})
 
         current +=1
@@ -129,23 +129,24 @@ def validation(epoch):
             pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
     validation_loss /= len(val_loader.dataset)
-    percent = "{:.2f}".format(100. * correct / len(val_loader.dataset))
+    validation_acc = float(correct) / len(val_loader.dataset)
     print('\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         validation_loss, correct, len(val_loader.dataset),
-        100. * correct / len(val_loader.dataset)))
-    wandb.log({"epoch" : epoch, "validation_loss": validation_loss, "validation_accuracy": percent})
-    return percent
+        100. * correct / len(val_loader.dataset)), flush=True)
+    wandb.log({"epoch" : epoch, "validation_loss": validation_loss, "validation_accuracy": validation_acc})
+    return validation_acc
 
 def main():
     wandb.init()
     wandb.config.update(args)
-    percent = "0"
+    wandb.hook_torch(model)
+    percent = 0.0
     avg_training_loss = 0
     for epoch in range(1, args.epochs + 1):
         avg_training_loss = train(epoch)
-        percent = validation(epoch)
-        model_file = 'model_' + str(epoch) +"_" + percent + '.pth'
+        percent = validation(epoch) * 100.
+        model_file = 'model_' + str(epoch) +"_" + "{:.2f}".format(percent) + '.pth'
         torch.save(model.state_dict(), model_file)
-    print('\nSaved model to ' + model_file + '. You can run `python evaluate.py ' + model_file + '` to generate the Kaggle formatted csv file')
+    print('\nSaved model to ' + model_file + '. You can run `python evaluate.py ' + model_file + '` to generate the Kaggle formatted csv file', flush = True)
 if __name__ == '__main__':
     main()
