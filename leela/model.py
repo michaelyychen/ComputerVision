@@ -27,7 +27,7 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(18, FILTER_SIZE, 3, stride=1, padding=1)
         self.bn1 = nn.BatchNorm2d(FILTER_SIZE)
-        self.res_tower = nn.ModuleList([ResConv() for i in range(2)])
+        self.res_tower = nn.ModuleList([ResConv() for i in range(19)])
 
         # policy head
         self.conv_pol = nn.Conv2d(FILTER_SIZE, 2, 1)
@@ -50,3 +50,14 @@ class Net(nn.Module):
         net = net.view(bsize, -1)
         net = self.fc(net)
         return F.log_softmax(net, dim=1)
+
+    def inference(self, x):
+        """
+        args
+            game is a np matrix of shape (18, 19, 19)
+        return
+            a numpy array probability distribution over 362 moves
+        """
+        with torch.no_grad():
+            output = self.forward(x)
+            return output
