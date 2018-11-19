@@ -133,7 +133,7 @@ def validation(epoch):
     print('\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         validation_loss, correct, len(val_loader.dataset),
         100. * correct / len(val_loader.dataset)))
-    wandb.log({"epoch" : epoch, "validation_loss": validation_loss})
+    wandb.log({"epoch" : epoch, "validation_loss": validation_loss, "validation_accuracy": percent})
     return precent
 
 def main():
