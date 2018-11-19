@@ -2,6 +2,12 @@
 
 This project implement a Go Engine.
 
+## How to Wandb
+1. pip install wandb
+2. wandb init
+3. wandb run python main.py
+
+
 ## Implementation
 
 You know... TODO
