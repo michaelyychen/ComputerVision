@@ -129,12 +129,12 @@ def validation(epoch):
             pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
     validation_loss /= len(val_loader.dataset)
-    precent = "{:.2f}".format(100. * correct / len(val_loader.dataset))
+    percent = "{:.2f}".format(100. * correct / len(val_loader.dataset))
     print('\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         validation_loss, correct, len(val_loader.dataset),
         100. * correct / len(val_loader.dataset)))
     wandb.log({"epoch" : epoch, "validation_loss": validation_loss, "validation_accuracy": percent})
-    return precent
+    return percent
 
 def main():
     wandb.init()
