@@ -11,14 +11,13 @@ from gtp import *
 device = torch.device("cpu")
 
 class NN_Engine():
-
     def __init__(self):
         self.board = Board(19)            
-
+        self.prev_move = (-1, -1)
         self.history = []
         from leela.model import Net
-        self.model = Net()
-        model_param = "../leela/checkpoints/model_Nov19th_40_9.pth"
+        self.model = Net(32, 39)
+        model_param = "../leela/checkpoints/model_Nov20th_44_4.pth"
         state_dict = torch.load(model_param)
         self.model.load_state_dict(state_dict)
         self.model = self.model.to(device)
@@ -40,16 +39,25 @@ class NN_Engine():
         # print(self.board.board)
         simple_ko = None
         while(True):
-            pred = self._get_prediction(color.abbrev()=='b')
+            pred, winrate = self._get_prediction(color.abbrev()=='b')
             prob, candidate_move = torch.sort(pred, descending=True)
-
+            prob = prob.exp().data.cpu().numpy()
             # print top 10 moves
-            
+            # print(prob)
+            total_weight = np.sum(prob)
             for i in range(19*19):
                 pos = candidate_move[0,i].item()
                 # print(pos)
-                rate = prob[0,i].exp().item()
-                if rate < 0.01:
+                dice = random.uniform(0, total_weight)
+                rate = prob[0,i]
+                # if dice > rate:
+                    # reject
+                    # total_weight -= rate
+                    # continue
+                print(rate)
+                
+                print("Current winrate: {}".format(winrate.data.cpu().item()))
+                if winrate.data.cpu().item() < -0.95:
                     return "resign"
                 next_vert = self._get_vertex_from_pos(pos)
                 if next_vert.isPass:
@@ -57,6 +65,10 @@ class NN_Engine():
                 try:
                     row = next_vert.row
                     col = next_vert.col
+                    if (row, col) == self.prev_move:
+                        self.board.board = self.history[-2]
+                        self.history = self.history[:-1]
+                        continue
                     if simple_ko is not None and row == simple_ko[0] and col == simple_ko[1]:
                         raise ValueError
 
@@ -75,8 +87,9 @@ class NN_Engine():
                     simple_ko = self.play( GTPMove(color, next_vert) )
                     for i in range(10):
                         pos = candidate_move[0,i].item()
-                        rate = prob[0,i].exp().item()
+                        rate = prob[0,i]
                         print(self._get_vertex_from_pos(pos), rate)
+                    self.prev_move = (row, col)
                     return next_vert
                 except ValueError:
                     continue

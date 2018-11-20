@@ -94,7 +94,7 @@ def compute_loss(prob, winner, target_prob, target_winner):
             ) / RAM_BATCH_SIZE
 
 def train_loop(train_data, test_data, model, info_batch=100, eval_batch=8000):
-    optimizer = torch.optim.SGD(model.parameters() ,lr=1e-1, momentum=0.9, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(model.parameters() ,lr=1e-2, momentum=0.9, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
                                     milestones=[200000, 400000, 600000, 700000, 800000], gamma=0.1)
 
