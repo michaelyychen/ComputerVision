@@ -28,17 +28,18 @@ import torch.nn.functional as F
 # Number of examples in a GPU batch. Higher values are more efficient.
 # The maximum depends on the amount of RAM in your GPU and the network size.
 # Must be smaller than BATCH_SIZE.
-RAM_BATCH_SIZE = 256
+RAM_BATCH_SIZE = 128
 
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
 DOWN_SAMPLE = 1
 
-FILTER_SIZE = 8
+FILTER_SIZE = 32
 NUM_LAYER = 39
 
 wandb.config.FILTER_SIZE = FILTER_SIZE
 wandb.config.NUM_BLOCK = NUM_LAYER
+wandb.config.BATCH_SIZE = RAM_BATCH_SIZE
 
 device = torch.device("cuda")
 
@@ -202,7 +203,7 @@ def train_loop(train_data, test_data, model, info_batch=100, eval_batch=8000):
                 torch.save(model.state_dict(), os.path.join(wandb.run.dir, model_file))
                 print('\nSaved model to ' + model_file + '.')
 
-model = NetNoVal(FILTER_SIZE, NUM_LAYER)
+model = Net(FILTER_SIZE, NUM_LAYER)
 
 def main(args):
     training = get_chunks(args.train_data)
