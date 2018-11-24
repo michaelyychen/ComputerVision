@@ -13,7 +13,7 @@ import argparse
 import wandb
 
 from chunkparser import ChunkParser
-from model import Net, NetNoVal, NetNoPol
+from model import Net, NetV2, NetNoVal, NetNoPol
 
 import torch
 from torch.autograd import Variable
@@ -27,14 +27,14 @@ BATCH_SIZE = 512
 # Number of examples in a GPU batch. Higher values are more efficient.
 # The maximum depends on the amount of RAM in your GPU and the network size.
 # Must be smaller than BATCH_SIZE.
-RAM_BATCH_SIZE = 256
+RAM_BATCH_SIZE = 32
 
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
-DOWN_SAMPLE = 1
+DOWN_SAMPLE = 4
 
-FILTER_SIZE = 32
-NUM_LAYER = 19
+FILTER_SIZE = 256
+NUM_LAYER = 4
 
 
 
@@ -103,13 +103,19 @@ def compute_loss(prob, winner, target_prob, target_winner):
             ) 
 
 def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval_batch=8000):
-    optimizer = torch.optim.SGD(model.parameters() ,lr=args.lr, momentum=0.9, weight_decay=1e-4)
-    # optimizer = torch.optim.Adam(model.parameters() ,lr=1e-3, betas=(0.9, 0.999), weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
-                                    milestones=[50000, 100000, 150000, 200000, 250000], gamma=0.1)
+    # optimizer = torch.optim.SGD(model.parameters() ,lr=args.lr, momentum=0.9, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters() , lr=1e-3, betas=(0.9, 0.98))#, weight_decay=1e-4)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
+                                    # milestones=[100000, 200000, 300000, 400000, 500000], gamma=0.1)
+                                    # milestones=[50000, 100000, 150000, 200000, 250000], gamma=0.1)
                                     # milestones=[10000, 20000, 30000, 40000, 50000], gamma=0.1)
+    warm_up=4000
+    lambda1=lambda epoch: 2*(FILTER_SIZE**-0.5) * np.min([(epoch+1)**-0.5, (epoch+1)*(warm_up**-1.5)])/1e-3
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
+    model.train()
+    optimizer.zero_grad()
 
-    step = 1
+    step = 0
     
     correct = 0
     winner_correct = 0
@@ -119,10 +125,9 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
     print(model)
     print("Start Training")
     while True:
-        scheduler.step()
-        optimizer.zero_grad()
-
+        step+=1
         model.train()
+
         (planes, probs, winner) = next(train_data)
 
         planes = np.frombuffer(planes, dtype=np.uint8).reshape((RAM_BATCH_SIZE, 18, 19, 19))
@@ -156,9 +161,7 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
             pred_val = output_val.data.sign()
             winner_correct += pred_val.eq(winner.view_as(pred_val)).cpu().sum().item()
         
-        if step % macro_batch == 0:
-            optimizer.step()
-            optimizer.zero_grad()
+        
         
         if step % info_batch == 0:
             print('Time:{:.3f} Train Step: {} \tLoss: {:.6f} Acc(next, winner): {:.6f}% {:.6f}%'.format(
@@ -182,6 +185,18 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
             total_loss = 0
             correct = 0
             winner_correct = 0
+
+        if step % macro_batch == 0:
+            for name, param in model.named_parameters():
+                writer.add_histogram("variable/"+name, param.clone().cpu().data.numpy(), step)
+                writer.add_histogram("gradient/"+name, param.grad.clone().cpu().data.numpy(), step)
+            scheduler.step()        
+            optimizer.step()
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    param.data = ema(name, param.data)
+            optimizer.zero_grad()
+
         if step % eval_batch == 0:
             print("Start Evaluating")
             with torch.no_grad():
@@ -238,9 +253,24 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
                 model_file =  'model_' + str(step) + '.pth'
                 torch.save(model.state_dict(), args.checkpoints + model_file)
                 print('\nSaved model to ' + model_file + '.')
-        step+=1
 
-model = NetNoPol(FILTER_SIZE, NUM_LAYER)
+class EMA():
+    def __init__(self, mu):
+        self.mu = mu
+        self.shadow = {}
+
+    def register(self, name, val):
+        self.shadow[name] = val.clone()
+
+    def __call__(self, name, x):
+        assert name in self.shadow
+        new_average = self.mu * x + (1.0 - self.mu) * self.shadow[name]
+        self.shadow[name] = new_average.clone()
+        return new_average
+ema = EMA(0.999)
+
+model = NetV2(FILTER_SIZE, NUM_LAYER)
+
 
 def main(args):
     training = get_chunks(args.train_data)
@@ -260,6 +290,9 @@ def main(args):
         model.load_state_dict(torch.load(args.model))
 
     model.to(device)
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            ema.register(name, param.data)
     if args.remote_log:
         wandb.hook_torch(model, log='all')
     
