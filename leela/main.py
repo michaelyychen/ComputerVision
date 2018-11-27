@@ -104,13 +104,13 @@ def compute_loss(prob, winner, target_prob, target_winner):
 
 def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval_batch=8000):
     # optimizer = torch.optim.SGD(model.parameters() ,lr=args.lr, momentum=0.9, weight_decay=1e-4)
-    optimizer = torch.optim.Adam(model.parameters() , lr=1e-3, betas=(0.9, 0.98))#, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters() , lr=1e-3, betas=(0.9, 0.98), eps=1e-9, weight_decay=1e-4)
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
                                     # milestones=[100000, 200000, 300000, 400000, 500000], gamma=0.1)
                                     # milestones=[50000, 100000, 150000, 200000, 250000], gamma=0.1)
                                     # milestones=[10000, 20000, 30000, 40000, 50000], gamma=0.1)
-    warm_up=4000
-    lambda1=lambda epoch: 2*(FILTER_SIZE**-0.5) * np.min([(epoch+1)**-0.5, (epoch+1)*(warm_up**-1.5)])/1e-3
+    warm_up=1000
+    lambda1=lambda epoch: (FILTER_SIZE**-0.5) * np.min([(epoch+1)**-0.5, (epoch+1)*(warm_up**-1.5)])/1e-3
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
     model.train()
     optimizer.zero_grad()
