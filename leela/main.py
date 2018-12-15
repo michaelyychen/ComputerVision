@@ -7,9 +7,7 @@ import numpy as np
 import time
 import sys
 import os
-
 import argparse
-
 import wandb
 
 from chunkparser import ChunkParser
@@ -18,6 +16,10 @@ from model import NetV2, NetV3, NetV4, NetV5, Net_Baseline, NetNoPol
 import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
+
+import functools
+
+print = functools.partial(print, flush=True)
 
 # Sane values are from 4096 to 64 or so.
 # You need to adjust the learning rate if you change this. Should be
@@ -34,7 +36,7 @@ RAM_BATCH_SIZE = 256
 DOWN_SAMPLE = 4
 
 FILTER_SIZE = 32
-NUM_LAYER = 2
+NUM_LAYER = 19
 
 
 
@@ -59,13 +61,6 @@ parser.add_argument('--ema', type=float, default=-1,
 
 args = parser.parse_args()
 
-if args.remote_log:
-    wandb.init()
-
-    wandb.config.FILTER_SIZE = FILTER_SIZE
-    wandb.config.NUM_BLOCK = NUM_LAYER
-    wandb.config.BATCH_SIZE = BATCH_SIZE
-    wandb.config.DATASET = "Professional"
 
 def get_chunks(data_prefix):
     return glob.glob(data_prefix + "*.gz")
@@ -93,9 +88,6 @@ class FileDataSrc:
                 print("failed to parse {}".format(filename))
 
 # 1 epoch = 62720 step
-
-from tensorboardX import SummaryWriter
-writer = SummaryWriter()
 
 def mse_loss(winner, target_winner):
     if winner is None:
@@ -154,14 +146,6 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
         loss_nll = nll_loss(output_prob, probs)
         loss = loss_mse + loss_nll
         loss.backward()
-
-        writer.add_scalar('train_loss/nll', loss_nll.data.cpu().item(), step)
-        if output_val is not None:
-            writer.add_scalar('train_loss/mse', loss_mse.data.cpu().item(), step)
-        else:
-            writer.add_scalar('train_loss/mse', 0, step)
-        
-        writer.add_scalar('train_loss/total', loss.data.cpu().item(), step)
         
         if output_val is not None:
             total_loss_mse += loss_mse.data.cpu().item()
@@ -189,19 +173,8 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
                     time.time() - start,
                     step, macro_batch_step, total_loss_mse/ batchNum, total_loss_nll/ batchNum, (total_loss_mse + total_loss_nll)/ batchNum, correct / RAM_BATCH_SIZE/batchNum*100.0,
                     winner_correct / RAM_BATCH_SIZE/batchNum*100.0))
-                writer.add_scalar('summary/train_loss', (total_loss_mse + total_loss_nll)/ batchNum, step)
-                writer.add_scalar('summary/train_loss_mse', (total_loss_mse)/ batchNum, step)
-                writer.add_scalar('summary/train_loss_nll', (total_loss_nll)/ batchNum, step)
-                writer.add_scalar('summary/train_acc', correct / RAM_BATCH_SIZE/batchNum, step)
-                writer.add_scalar('summary/train_acc_winner', winner_correct / RAM_BATCH_SIZE/batchNum, step)
-                
-                # Don't record gradient, this will cause wandb to be very slow
-                # for name, param in model.named_parameters():
-                #     writer.add_histogram("variable/"+name, param.clone().cpu().data.numpy(), step)
-                #     writer.add_histogram("gradient/"+name, param.grad.clone().cpu().data.numpy(), step)
                 
                 for param_group in optimizer.param_groups:
-                    writer.add_scalar('summary/lr', param_group['lr'], step)
                     if args.remote_log:
                         wandb.log({
                             "lr": param_group['lr'],
@@ -272,11 +245,6 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
                     step, eval_loss_mse/ eval_size, eval_loss_nll/ eval_size, (eval_loss_mse + eval_loss_nll)/ eval_size, eval_correct / RAM_BATCH_SIZE/eval_size*100.0,
                     eval_correct_winner / RAM_BATCH_SIZE/eval_size*100.0))
                 
-                writer.add_scalar('summary/val_loss', (eval_loss_mse + eval_loss_nll)/eval_size, step)
-                writer.add_scalar('summary/val_loss_mse', (eval_loss_mse)/eval_size, step)
-                writer.add_scalar('summary/val_loss_nll', (eval_loss_nll)/eval_size, step)
-                writer.add_scalar('summary/val_acc', eval_correct / RAM_BATCH_SIZE/eval_size, step)
-                writer.add_scalar('summary/val_acc_winner', eval_correct_winner / RAM_BATCH_SIZE / eval_size, step)
                 if args.remote_log:
                     wandb.log({
                         "val_loss": (eval_loss_mse + eval_loss_nll)/eval_size, 
@@ -308,6 +276,17 @@ model = Net_Baseline(FILTER_SIZE, NUM_LAYER)
 
 
 def main(args):
+
+    if args.remote_log:
+        wandb.init()
+
+        wandb.config.FILTER_SIZE = FILTER_SIZE
+        wandb.config.NUM_BLOCK = NUM_LAYER
+        wandb.config.BATCH_SIZE = BATCH_SIZE
+        wandb.config.DATASET = "Professional"
+
+
+
     training = get_chunks(args.train_data)
     testing = get_chunks(args.test_data)
     training_parser = ChunkParser(FileDataSrc(training),
@@ -330,7 +309,7 @@ def main(args):
             if param.requires_grad:
                 ema.register(name, param.data)
     if args.remote_log:
-        wandb.hook_torch(model)
+        wandb.watch(model)
     
     train_loop(training_parser, testing_parser, model, macro_batch=BATCH_SIZE//RAM_BATCH_SIZE)
 
