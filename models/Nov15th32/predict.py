@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from torch.autograd import Variable
 
-device = torch.device("cuda")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def predict(game,extra_features,model):
     """

@@ -5,19 +5,19 @@ import numpy as np
 from sgfmill.boards import Board
 from gtp import *
 
-from models.Nov15th32.predict import predict
+from models.Nov2038.predict import predict
 
-device = torch.device("cuda")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NN_Go_Engine():
     def __init__(self):
         self.board = Board(19)
         
 
-        from models.Nov15th32.model import GoNet
+        from models.Nov2038.model import GoNet
         self.model = GoNet(13)
-        model_param = "../models/Nov15th32/model_2_32%.pth"
-        state_dict = torch.load(model_param)
+        model_param = "../models/Nov2038/model_5_38.05.pth"
+        state_dict = torch.load(model_param,map_location='cpu')
         self.model.load_state_dict(state_dict)
         self.model = self.model.to(device)
 
@@ -49,6 +49,8 @@ class NN_Go_Engine():
                 next_vert = self._get_vertex_from_pos(pos)
                 if next_vert.isPass:
                     return next_vert
+                elif rate < 0.1:
+                    return "PASS"
                 try:
                     row = next_vert.row
                     col = next_vert.col
