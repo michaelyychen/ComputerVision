@@ -6,9 +6,13 @@ from layer import *
 
 NUM_CLASS = 19*19+1
 
-class Net(nn.Module):
+###
+###   This is the Residual Tower Model, including Baseline, Res 19, Res39
+###   no winner prediction
+###   Michael USE THIS
+class Net_Baseline(nn.Module):
     def __init__(self, filters=256, layernum=2):
-        super(Net, self).__init__()
+        super(Net_Baseline, self).__init__()
         FILTER_SIZE = filters
         self.conv1 = nn.Conv2d(18, FILTER_SIZE, 3, stride=1, padding=1, bias=True)
         nn.init.xavier_uniform_(self.conv1.weight)
@@ -26,15 +30,15 @@ class Net(nn.Module):
         nn.init.xavier_uniform_(self.fc_pol.weight)
 
         # value head
-        self.conv_val = nn.Conv2d(FILTER_SIZE, 1, 1, bias=True)
-        nn.init.xavier_uniform_(self.conv_val.weight)
+        # self.conv_val = nn.Conv2d(FILTER_SIZE, 1, 1, bias=True)
+        # nn.init.xavier_uniform_(self.conv_val.weight)
 
-        self.bn_val = nn.BatchNorm2d(1)
-        self.fc_val_1 = nn.Linear(361, 256)
-        nn.init.xavier_uniform_(self.fc_val_1.weight)
+        # self.bn_val = nn.BatchNorm2d(1)
+        # self.fc_val_1 = nn.Linear(361, 256)
+        # nn.init.xavier_uniform_(self.fc_val_1.weight)
 
-        self.fc_val_2 = nn.Linear(256, 1)
-        nn.init.xavier_uniform_(self.fc_val_2.weight)
+        # self.fc_val_2 = nn.Linear(256, 1)
+        # nn.init.xavier_uniform_(self.fc_val_2.weight)
 
 
     def forward(self, x):
@@ -55,15 +59,14 @@ class Net(nn.Module):
         pol = self.fc_pol(pol)
 
         # value head
-        val = self.conv_val(net)
-        val = F.relu(self.bn_val(val))
-        val = val.view(-1, 361)
-        val = F.relu(self.fc_val_1(val))
-        val = self.fc_val_2(val)
+        # val = self.conv_val(net)
+        # val = F.relu(self.bn_val(val))
+        # val = val.view(-1, 361)
+        # val = F.relu(self.fc_val_1(val))
+        # val = self.fc_val_2(val)
 
 
-        return F.log_softmax(pol, dim=1), torch.tanh(val)
-
+        return F.log_softmax(pol, dim=1), None
     def inference(self, x):
         """
         args
@@ -448,15 +451,15 @@ class NetNoPol(nn.Module):
             output = self.forward(x)
             return output
 
-class Net_Baseline(nn.Module):
+class Net_SimpleConv(nn.Module):
     def __init__(self, filters=256, layernum=2):
-        super(Net_Baseline, self).__init__()
+        super(Net_SimpleConv, self).__init__()
         FILTER_SIZE = filters
         self.conv1 = nn.Conv2d(18, FILTER_SIZE, 3, stride=1, padding=1, bias=True)
         self.bn1 = nn.BatchNorm2d(FILTER_SIZE)
 
         self.res_tower = nn.ModuleList([ResConv(FILTER_SIZE) for i in range(layernum)])
-        
+
         # policy head
         self.conv_pol = nn.Conv2d(FILTER_SIZE, 2, 1, bias=True)
         self.bn_pol = nn.BatchNorm2d(2)
