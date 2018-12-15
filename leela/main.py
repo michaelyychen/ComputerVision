@@ -27,14 +27,14 @@ BATCH_SIZE = 512
 # Number of examples in a GPU batch. Higher values are more efficient.
 # The maximum depends on the amount of RAM in your GPU and the network size.
 # Must be smaller than BATCH_SIZE.
-RAM_BATCH_SIZE = 16
+RAM_BATCH_SIZE = 256
 
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
 DOWN_SAMPLE = 4
 
-FILTER_SIZE = 256
-NUM_LAYER = 4
+FILTER_SIZE = 32
+NUM_LAYER = 2
 
 
 
@@ -64,7 +64,8 @@ if args.remote_log:
 
     wandb.config.FILTER_SIZE = FILTER_SIZE
     wandb.config.NUM_BLOCK = NUM_LAYER
-    wandb.config.BATCH_SIZE = RAM_BATCH_SIZE
+    wandb.config.BATCH_SIZE = BATCH_SIZE
+    wandb.config.DATASET = "Professional"
 
 def get_chunks(data_prefix):
     return glob.glob(data_prefix + "*.gz")
@@ -106,7 +107,7 @@ def nll_loss(prob, target_prob):
         return 0
     return -torch.sum(target_prob * prob)/ RAM_BATCH_SIZE 
 
-def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval_batch=8000):
+def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval_batch=1000):
     optimizer = torch.optim.SGD(model.parameters() ,lr=args.lr, momentum=0.9, weight_decay=1e-4)
     # optimizer = torch.optim.Adam(model.parameters() , lr=1e-3, betas=(0.9, 0.99), eps=1e-9, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
@@ -129,6 +130,7 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
     struct_winner = str(RAM_BATCH_SIZE)+'f'
     print(model)
     print("Start Training")
+    macro_batch_step = 0
     while True:
         step+=1
         model.train()
@@ -177,40 +179,41 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
             pred_val = output_val.data.sign()
             winner_correct += pred_val.eq(winner.view_as(pred_val)).cpu().sum().item()
         
-        
-        
-        if step % info_batch == 0:
-            print('Time:{:10.3f} Step: {:10d} MSE_Loss: {:2.6f} NLL_Loss: {:2.6f} Loss: {:2.6f} Acc.: {:3.6f}% Winner_Acc.: {:3.6f}%'.format(
-                time.time() - start,
-                step, total_loss_mse/ info_batch, total_loss_nll/ info_batch, (total_loss_mse + total_loss_nll)/ info_batch, correct / RAM_BATCH_SIZE/info_batch*100.0,
-                winner_correct / RAM_BATCH_SIZE/info_batch*100.0))
-            writer.add_scalar('summary/train_loss', (total_loss_mse + total_loss_nll)/ info_batch, step)
-            writer.add_scalar('summary/train_loss_mse', (total_loss_mse)/ info_batch, step)
-            writer.add_scalar('summary/train_loss_nll', (total_loss_nll)/ info_batch, step)
-            writer.add_scalar('summary/train_acc', correct / RAM_BATCH_SIZE/info_batch, step)
-            writer.add_scalar('summary/train_acc_winner', winner_correct / RAM_BATCH_SIZE/info_batch, step)
-            for name, param in model.named_parameters():
-                writer.add_histogram("variable/"+name, param.clone().cpu().data.numpy(), step)
-                writer.add_histogram("gradient/"+name, param.grad.clone().cpu().data.numpy(), step)
-            for param_group in optimizer.param_groups:
-                writer.add_scalar('summary/lr', param_group['lr'], step)
-                if args.remote_log:
-                    wandb.log({
-                        "lr": param_group['lr'],
-                        "loss": (total_loss_mse + total_loss_nll)/ info_batch, 
-                        "loss_mse": (total_loss_mse)/ info_batch, 
-                        "loss_nll": (total_loss_nll)/ info_batch, 
-                        'train_acc': correct / RAM_BATCH_SIZE/info_batch,
-                        'train_acc_winner': winner_correct / RAM_BATCH_SIZE/info_batch})
-            total_loss_mse = 0
-            total_loss_nll = 0
-            correct = 0
-            winner_correct = 0
 
         if step % macro_batch == 0:
-            # for name, param in model.named_parameters():
-            #     writer.add_histogram("variable/"+name, param.clone().cpu().data.numpy(), step)
-            #     writer.add_histogram("gradient/"+name, param.grad.clone().cpu().data.numpy(), step)
+            macro_batch_step += 1
+            
+            if macro_batch_step % info_batch == 0:
+                batchNum = info_batch * macro_batch
+                print('Time:{:10.3f} Step: {:10d}/{:10d} MSE_Loss: {:2.6f} NLL_Loss: {:2.6f} Loss: {:2.6f} Acc.: {:3.6f}% Winner_Acc.: {:3.6f}%'.format(
+                    time.time() - start,
+                    step, macro_batch_step, total_loss_mse/ batchNum, total_loss_nll/ batchNum, (total_loss_mse + total_loss_nll)/ batchNum, correct / RAM_BATCH_SIZE/batchNum*100.0,
+                    winner_correct / RAM_BATCH_SIZE/batchNum*100.0))
+                writer.add_scalar('summary/train_loss', (total_loss_mse + total_loss_nll)/ batchNum, step)
+                writer.add_scalar('summary/train_loss_mse', (total_loss_mse)/ batchNum, step)
+                writer.add_scalar('summary/train_loss_nll', (total_loss_nll)/ batchNum, step)
+                writer.add_scalar('summary/train_acc', correct / RAM_BATCH_SIZE/batchNum, step)
+                writer.add_scalar('summary/train_acc_winner', winner_correct / RAM_BATCH_SIZE/batchNum, step)
+                
+                # Don't record gradient, this will cause wandb to be very slow
+                # for name, param in model.named_parameters():
+                #     writer.add_histogram("variable/"+name, param.clone().cpu().data.numpy(), step)
+                #     writer.add_histogram("gradient/"+name, param.grad.clone().cpu().data.numpy(), step)
+                
+                for param_group in optimizer.param_groups:
+                    writer.add_scalar('summary/lr', param_group['lr'], step)
+                    if args.remote_log:
+                        wandb.log({
+                            "lr": param_group['lr'],
+                            "loss": (total_loss_mse + total_loss_nll)/ batchNum, 
+                            "loss_mse": (total_loss_mse)/ batchNum, 
+                            "loss_nll": (total_loss_nll)/ batchNum, 
+                            'train_acc': correct / RAM_BATCH_SIZE/batchNum,
+                            'train_acc_winner': winner_correct / RAM_BATCH_SIZE/batchNum})
+                total_loss_mse = 0
+                total_loss_nll = 0
+                correct = 0
+                winner_correct = 0
             scheduler.step()        
             optimizer.step()
 
@@ -301,7 +304,7 @@ class EMA():
         return new_average
 ema = EMA(0.999)
 
-model = Net_Baseline(FILTER_SIZE)
+model = Net_Baseline(FILTER_SIZE, NUM_LAYER)
 
 
 def main(args):
