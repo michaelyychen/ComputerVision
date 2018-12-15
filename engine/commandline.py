@@ -137,14 +137,14 @@ if __name__=='__main__' and __package__ is None:
     from os.path import dirname as dir
 
     path.append(dir(path[0]))
-    __package__ = "models"
+    __package__ = "leela"
     
     # Random engine
     #from engine import Random_Go_Engine
     #engine = Random_Go_Engine()
 
     # NN Engine
-    from models.NN_Go_Engine import NN_Go_Engine
-    engine = NN_Go_Engine()
+    from NN_Engine import NN_Engine
+    engine = NN_Engine()
 
     GTPShell().cmdloop()
