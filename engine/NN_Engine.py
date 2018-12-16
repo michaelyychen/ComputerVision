@@ -15,6 +15,7 @@ class NN_Engine():
         self.board = Board(19)            
         self.prev_move = (-1, -1)
         self.history = []
+        self.previous_plane = set()
         from leela.model import Net
         self.model = Net(32, 39)
         model_param = "../leela/checkpoints/model_Nov20th_44_4.pth"
@@ -33,7 +34,9 @@ class NN_Engine():
     
     def play(self, move):
         self.history.append(self.board.board.copy())
-        return self.board.play(move.vec.row, move.vec.col, move.color.abbrev())
+        ret = self.board.play(move.vec.row, move.vec.col, move.color.abbrev())
+        self.previous_plane.add(str(self.board.list_occupied_points()))
+        return ret
 
     def genmove(self, color):
         # print(self.board.board)
@@ -62,6 +65,8 @@ class NN_Engine():
                 next_vert = self._get_vertex_from_pos(pos)
                 if next_vert.isPass:
                     return next_vert
+                elif rate < 0.06:
+                    return "PASS"
                 try:
                     row = next_vert.row
                     col = next_vert.col
@@ -84,6 +89,8 @@ class NN_Engine():
                             self.board.board[row][col] = None
                             raise ValueError
                     self.board.board[row][col] = None
+                    if self._exist_Ko_fight(row, col, color.abbrev()):
+                        continue
                     simple_ko = self.play( GTPMove(color, next_vert) )
                     for i in range(10):
                         pos = candidate_move[0,i].item()
@@ -137,3 +144,8 @@ class NN_Engine():
         row = pos//19
         col = pos%19
         return GTPVertex(row, col)
+
+    def _exist_Ko_fight(self, row, col, colour):
+        tmp_board = self.board.copy()
+        tmp_board.play(row,col,colour)
+        return str(tmp_board.list_occupied_points()) in self.previous_plane 
