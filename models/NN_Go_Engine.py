@@ -12,6 +12,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class NN_Go_Engine():
     def __init__(self):
         self.board = Board(19)
+        self.previous_plane = set()
         
 
         from models.Nov2038.model import GoNet
@@ -49,7 +50,7 @@ class NN_Go_Engine():
                 next_vert = self._get_vertex_from_pos(pos)
                 if next_vert.isPass:
                     return next_vert
-                elif rate < 0.1:
+                elif rate < 0.06:
                     return "PASS"
                 try:
                     row = next_vert.row
@@ -67,7 +68,10 @@ class NN_Go_Engine():
                             self.board.board[row][col] = None
                             raise ValueError
                     self.board.board[row][col] = None
+                    if self._exist_Ko_fight(row, col, color.abbrev()):
+                        continue
                     self.board.play(row, col, color.abbrev())
+                    self.previous_plane.add(str(self.board.list_occupied_points()))
                     for i in range(10):
                         pos = candidate_move[0,i].item()
                         rate = prob[0,i].exp().item()
@@ -104,3 +108,8 @@ class NN_Go_Engine():
         row = pos//19
         col = pos%19
         return GTPVertex(row, col)
+    
+    def _exist_Ko_fight(self, row, col, colour):
+        tmp_board = self.board.copy()
+        tmp_board.play(row,col,colour)
+        return str(tmp_board.list_occupied_points()) in self.previous_plane 
