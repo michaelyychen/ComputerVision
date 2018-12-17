@@ -238,7 +238,7 @@ class NetV4(nn.Module):
 
         self.bn1 = nn.BatchNorm2d(FILTER_SIZE)
 
-        self.res_tower = nn.ModuleList([ResConv(FILTER_SIZE) for i in range(9)])
+        self.res_tower = nn.ModuleList([ResConv(FILTER_SIZE) for i in range(4)])
         self.attn_tower = nn.ModuleList([TransformerBlock(FILTER_SIZE) for _ in range(3)])
         
         # policy head
@@ -250,15 +250,15 @@ class NetV4(nn.Module):
         nn.init.xavier_uniform_(self.fc_pol.weight)
 
         # value head
-        self.conv_val = nn.Conv2d(FILTER_SIZE, 1, 1, bias=False)
-        nn.init.xavier_uniform_(self.conv_val.weight)
+        # self.conv_val = nn.Conv2d(FILTER_SIZE, 1, 1, bias=False)
+        # nn.init.xavier_uniform_(self.conv_val.weight)
 
-        self.bn_val = nn.BatchNorm2d(1)
-        self.fc_val_1 = nn.Linear(361, 256)
-        nn.init.xavier_uniform_(self.fc_val_1.weight)
+        # self.bn_val = nn.BatchNorm2d(1)
+        # self.fc_val_1 = nn.Linear(361, 256)
+        # nn.init.xavier_uniform_(self.fc_val_1.weight)
 
-        self.fc_val_2 = nn.Linear(256, 1)
-        nn.init.xavier_uniform_(self.fc_val_2.weight)
+        # self.fc_val_2 = nn.Linear(256, 1)
+        # nn.init.xavier_uniform_(self.fc_val_2.weight)
 
 
     def forward(self, x):
@@ -287,14 +287,14 @@ class NetV4(nn.Module):
         net = net.reshape((-1, self.filter_size, 19, 19))
 
         # value head
-        val = self.conv_val(net)
-        val = F.relu(self.bn_val(val))
-        val = val.view(-1, 361)
-        val = F.relu(self.fc_val_1(val))
-        val = self.fc_val_2(val)
+        # val = self.conv_val(net)
+        # val = F.relu(self.bn_val(val))
+        # val = val.view(-1, 361)
+        # val = F.relu(self.fc_val_1(val))
+        # val = self.fc_val_2(val)
 
 
-        return F.log_softmax(pol, dim=1), torch.tanh(val)
+        return F.log_softmax(pol, dim=1), None # torch.tanh(val)
 
     def inference(self, x):
         """

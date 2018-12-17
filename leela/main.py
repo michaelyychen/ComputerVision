@@ -27,13 +27,13 @@ BATCH_SIZE = 512
 # Number of examples in a GPU batch. Higher values are more efficient.
 # The maximum depends on the amount of RAM in your GPU and the network size.
 # Must be smaller than BATCH_SIZE.
-RAM_BATCH_SIZE = 256
+RAM_BATCH_SIZE = 16
 
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
 DOWN_SAMPLE = 4
 
-FILTER_SIZE = 32
+FILTER_SIZE = 256
 NUM_LAYER = 2
 
 
@@ -108,15 +108,16 @@ def nll_loss(prob, target_prob):
     return -torch.sum(target_prob * prob)/ RAM_BATCH_SIZE 
 
 def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval_batch=1000):
-    optimizer = torch.optim.SGD(model.parameters() ,lr=args.lr, momentum=0.9, weight_decay=1e-4)
-    # optimizer = torch.optim.Adam(model.parameters() , lr=1e-3, betas=(0.9, 0.99), eps=1e-9, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
+    # optimizer = torch.optim.SGD(model.parameters() ,lr=args.lr, momentum=0.9, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters() , lr=1e-3, betas=(0.9, 0.99), eps=1e-9, weight_decay=1e-4)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
                                     # milestones=[100000, 200000, 300000, 400000, 500000], gamma=0.1)
-                                    milestones=[50000, 100000, 150000, 200000, 250000], gamma=0.1)
+                                    # milestones=[50000, 100000, 150000, 200000, 250000], gamma=0.1)
                                     # milestones=[10000, 20000, 30000, 40000, 50000], gamma=0.1)
-    # warm_up=2000
-    # lambda1=lambda epoch: 0.25*(FILTER_SIZE**-0.5) * np.min([(epoch+1)**-0.5, (epoch+1)*(warm_up**-1.5)])/1e-3
-    # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
+    warm_up=2000
+    lambda1=lambda epoch: 0.25*(FILTER_SIZE**-0.5) * np.min([(epoch+1)**-0.5, (epoch+1)*(warm_up**-1.5)])/1e-3
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
+    
     model.train()
     optimizer.zero_grad()
 
@@ -224,70 +225,70 @@ def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval
 
             optimizer.zero_grad()
 
-        if step % eval_batch == 0:
-            print("Start Evaluating")
-            with torch.no_grad():
-                eval_size = 800
-                model.eval()
-                eval_loss_mse = 0
-                eval_loss_nll = 0
-                eval_correct = 0
-                eval_correct_winner = 0
-                for _ in range(eval_size):
-                    (planes, probs, winner) = next(test_data)
+            if macro_batch_step % eval_batch == 0:
+                print("Start Evaluating")
+                with torch.no_grad():
+                    eval_size = 800*macro_batch
+                    model.eval()
+                    eval_loss_mse = 0
+                    eval_loss_nll = 0
+                    eval_correct = 0
+                    eval_correct_winner = 0
+                    for _ in range(eval_size):
+                        (planes, probs, winner) = next(test_data)
 
-                    planes = np.frombuffer(planes, dtype=np.uint8).reshape((RAM_BATCH_SIZE, 18, 19, 19))
-                    probs = np.frombuffer(probs, dtype=np.float32).reshape((RAM_BATCH_SIZE, 362))
+                        planes = np.frombuffer(planes, dtype=np.uint8).reshape((RAM_BATCH_SIZE, 18, 19, 19))
+                        probs = np.frombuffer(probs, dtype=np.float32).reshape((RAM_BATCH_SIZE, 362))
 
-                    planes = Variable(torch.from_numpy(planes.astype(np.float32))).to(device)
-                    probs  = Variable(torch.from_numpy(probs)).to(device)
+                        planes = Variable(torch.from_numpy(planes.astype(np.float32))).to(device)
+                        probs  = Variable(torch.from_numpy(probs)).to(device)
 
-                    winner = struct.unpack(struct_winner, winner)        
-                    winner = Variable(torch.FloatTensor(winner)).to(device)
+                        winner = struct.unpack(struct_winner, winner)        
+                        winner = Variable(torch.FloatTensor(winner)).to(device)
+                        
+                        
+                        output_prob, output_val = model(planes)
+
+                        loss_mse = mse_loss(output_val, winner)
+                        loss_nll = nll_loss(output_prob, probs)
+                        
+                        if output_val is not None:
+                            eval_loss_mse += loss_mse.data.cpu().item()
+                        eval_loss_nll += loss_nll.data.cpu().item()
+                        
+                        # accuracy
+                        # if output_prob is not None:
+                        pred = output_prob.data.max(1, keepdim=True)[1]
+                        label = probs.data.max(1, keepdim=True)[1]
+
+                        eval_correct += pred.eq(label.view_as(pred)).cpu().sum().item()
+                        
+                        # accuracy of winner
+                        if output_val is not None:
+                            pred_val = output_val.data.sign()
+                            eval_correct_winner += pred_val.eq(winner.view_as(pred_val)).cpu().sum().item()
+
+                    print('Time:{:10.3f} Step: {:10d} MSE_Loss: {:2.6f} NLL_Loss: {:2.6f} Loss: {:2.6f} Acc.: {:3.6f}% Winner_Acc.: {:3.6f}%'.format(
+                        time.time() - start,
+                        step, eval_loss_mse/ eval_size, eval_loss_nll/ eval_size, (eval_loss_mse + eval_loss_nll)/ eval_size, eval_correct / RAM_BATCH_SIZE/eval_size*100.0,
+                        eval_correct_winner / RAM_BATCH_SIZE/eval_size*100.0))
                     
-                    
-                    output_prob, output_val = model(planes)
+                    writer.add_scalar('summary/val_loss', (eval_loss_mse + eval_loss_nll)/eval_size, step)
+                    writer.add_scalar('summary/val_loss_mse', (eval_loss_mse)/eval_size, step)
+                    writer.add_scalar('summary/val_loss_nll', (eval_loss_nll)/eval_size, step)
+                    writer.add_scalar('summary/val_acc', eval_correct / RAM_BATCH_SIZE/eval_size, step)
+                    writer.add_scalar('summary/val_acc_winner', eval_correct_winner / RAM_BATCH_SIZE / eval_size, step)
+                    if args.remote_log:
+                        wandb.log({
+                            "val_loss": (eval_loss_mse + eval_loss_nll)/eval_size, 
+                            "val_loss_mse": (eval_loss_mse)/eval_size, 
+                            "val_loss_nll": (eval_loss_nll)/eval_size, 
+                            "val_acc": eval_correct / RAM_BATCH_SIZE/eval_size,
+                            "val_acc_winner": eval_correct_winner / RAM_BATCH_SIZE / eval_size})
 
-                    loss_mse = mse_loss(output_val, winner)
-                    loss_nll = nll_loss(output_prob, probs)
-                    
-                    if output_val is not None:
-                        eval_loss_mse += loss_mse.data.cpu().item()
-                    eval_loss_nll += loss_nll.data.cpu().item()
-                    
-                    # accuracy
-                    # if output_prob is not None:
-                    pred = output_prob.data.max(1, keepdim=True)[1]
-                    label = probs.data.max(1, keepdim=True)[1]
-
-                    eval_correct += pred.eq(label.view_as(pred)).cpu().sum().item()
-                    
-                    # accuracy of winner
-                    if output_val is not None:
-                        pred_val = output_val.data.sign()
-                        eval_correct_winner += pred_val.eq(winner.view_as(pred_val)).cpu().sum().item()
-
-                print('Time:{:10.3f} Step: {:10d} MSE_Loss: {:2.6f} NLL_Loss: {:2.6f} Loss: {:2.6f} Acc.: {:3.6f}% Winner_Acc.: {:3.6f}%'.format(
-                    time.time() - start,
-                    step, eval_loss_mse/ eval_size, eval_loss_nll/ eval_size, (eval_loss_mse + eval_loss_nll)/ eval_size, eval_correct / RAM_BATCH_SIZE/eval_size*100.0,
-                    eval_correct_winner / RAM_BATCH_SIZE/eval_size*100.0))
-                
-                writer.add_scalar('summary/val_loss', (eval_loss_mse + eval_loss_nll)/eval_size, step)
-                writer.add_scalar('summary/val_loss_mse', (eval_loss_mse)/eval_size, step)
-                writer.add_scalar('summary/val_loss_nll', (eval_loss_nll)/eval_size, step)
-                writer.add_scalar('summary/val_acc', eval_correct / RAM_BATCH_SIZE/eval_size, step)
-                writer.add_scalar('summary/val_acc_winner', eval_correct_winner / RAM_BATCH_SIZE / eval_size, step)
-                if args.remote_log:
-                    wandb.log({
-                        "val_loss": (eval_loss_mse + eval_loss_nll)/eval_size, 
-                        "val_loss_mse": (eval_loss_mse)/eval_size, 
-                        "val_loss_nll": (eval_loss_nll)/eval_size, 
-                        "val_acc": eval_correct / RAM_BATCH_SIZE/eval_size,
-                        "val_acc_winner": eval_correct_winner / RAM_BATCH_SIZE / eval_size})
-
-                model_file =  'model_' + str(step) + '.pth'
-                torch.save(model.state_dict(), args.checkpoints + model_file)
-                print('Saved model to ' + model_file + '.\n')
+                    model_file =  'model_' + str(step) + '.pth'
+                    torch.save(model.state_dict(), args.checkpoints + model_file)
+                    print('Saved model to ' + model_file + '.\n')
 
 class EMA():
     def __init__(self, mu):
@@ -302,9 +303,10 @@ class EMA():
         new_average = self.mu * x + (1.0 - self.mu) * self.shadow[name]
         self.shadow[name] = new_average.clone()
         return new_average
-ema = EMA(0.999)
+if args.ema > 0:
+    ema = EMA(args.ema)
 
-model = Net_Baseline(FILTER_SIZE, NUM_LAYER)
+model = NetV4(FILTER_SIZE)
 
 
 def main(args):
@@ -330,7 +332,7 @@ def main(args):
             if param.requires_grad:
                 ema.register(name, param.data)
     if args.remote_log:
-        wandb.hook_torch(model)
+        wandb.watch(model)
     
     train_loop(training_parser, testing_parser, model, macro_batch=BATCH_SIZE//RAM_BATCH_SIZE)
 
