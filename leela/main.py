@@ -12,6 +12,7 @@ import wandb
 
 from chunkparser import ChunkParser
 from model import NetV2, NetV3, NetV4, NetV5, Net_Baseline, NetNoPol
+from model_ed import GoNet
 
 import torch
 from torch.autograd import Variable
