@@ -34,7 +34,7 @@ RAM_BATCH_SIZE = 16
 DOWN_SAMPLE = 4
 
 FILTER_SIZE = 256
-NUM_LAYER = 2
+NUM_LAYER = 19
 
 
 
@@ -107,16 +107,16 @@ def nll_loss(prob, target_prob):
         return 0
     return -torch.sum(target_prob * prob)/ RAM_BATCH_SIZE 
 
-def train_loop(train_data, test_data, model, macro_batch=1, info_batch=100, eval_batch=1000):
-    # optimizer = torch.optim.SGD(model.parameters() ,lr=args.lr, momentum=0.9, weight_decay=1e-4)
-    optimizer = torch.optim.Adam(model.parameters() , lr=1e-3, betas=(0.9, 0.99), eps=1e-9, weight_decay=1e-4)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
+def train_loop(train_data, test_data, model, macro_batch=1, info_batch=10, eval_batch=1000):
+    optimizer = torch.optim.SGD(model.parameters() ,lr=args.lr, momentum=0.9, weight_decay=1e-4)
+    # optimizer = torch.optim.Adam(model.parameters() , lr=1e-3, betas=(0.9, 0.99), eps=1e-9, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
                                     # milestones=[100000, 200000, 300000, 400000, 500000], gamma=0.1)
-                                    # milestones=[50000, 100000, 150000, 200000, 250000], gamma=0.1)
+                                    milestones=[50000, 100000, 150000, 200000, 250000], gamma=0.1)
                                     # milestones=[10000, 20000, 30000, 40000, 50000], gamma=0.1)
-    warm_up=2000
-    lambda1=lambda epoch: 0.25*(FILTER_SIZE**-0.5) * np.min([(epoch+1)**-0.5, (epoch+1)*(warm_up**-1.5)])/1e-3
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
+    # warm_up=2000
+    # lambda1=lambda epoch: (FILTER_SIZE**-0.5) * np.min([(epoch+1)**-0.5, (epoch+1)*(warm_up**-1.5)])/1e-3
+    # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
     
     model.train()
     optimizer.zero_grad()
@@ -306,7 +306,7 @@ class EMA():
 if args.ema > 0:
     ema = EMA(args.ema)
 
-model = NetV4(FILTER_SIZE)
+model = Net_Baseline(FILTER_SIZE, NUM_LAYER)
 
 
 def main(args):
@@ -331,8 +331,8 @@ def main(args):
         for name, param in model.named_parameters():
             if param.requires_grad:
                 ema.register(name, param.data)
-    if args.remote_log:
-        wandb.watch(model)
+    #if args.remote_log:
+    #    wandb.watch(model)
     
     train_loop(training_parser, testing_parser, model, macro_batch=BATCH_SIZE//RAM_BATCH_SIZE)
 
