@@ -1,8 +1,8 @@
 import random
 import torch
 import numpy as np
-from torch.autograd import Variable
 
+from torch.autograd import Variable
 
 from sgfmill.boards import Board
 from gtp import *
@@ -15,10 +15,13 @@ class NN_Engine():
         self.board = Board(19)            
         self.prev_move = (-1, -1)
         self.history = []
-        from leela.model import Net
-        self.model = Net(32, 39)
-        model_param = "../leela/checkpoints/model_Nov20th_44_4.pth"
-        state_dict = torch.load(model_param)
+        self.pass_prob_bound = 0.02
+        self.previous_plane = set()
+        
+        from leela.model import Net_Baseline
+        self.model = Net_Baseline(256, 19)
+        model_param = "../leela/model_res19_256_2.pth"
+        state_dict = torch.load(model_param,map_location="cpu")
         self.model.load_state_dict(state_dict)
         self.model = self.model.to(device)
 
@@ -33,12 +36,16 @@ class NN_Engine():
     
     def play(self, move):
         self.history.append(self.board.board.copy())
-        return self.board.play(move.vec.row, move.vec.col, move.color.abbrev())
+        ret = self.board.play(move.vec.row, move.vec.col, move.color.abbrev())
+        self.previous_plane.add(str(self.board.list_occupied_points()))
+        return ret
 
     def genmove(self, color):
         # print(self.board.board)
         simple_ko = None
         while(True):
+            
+            #pred, winrate = self._get_prediction_with_current_status_only(color.abbrev()=='b')
             pred, winrate = self._get_prediction(color.abbrev()=='b')
             prob, candidate_move = torch.sort(pred, descending=True)
             prob = prob.exp().data.cpu().numpy()
@@ -55,13 +62,13 @@ class NN_Engine():
                     # total_weight -= rate
                     # continue
                 print(rate)
-                
-                print("Current winrate: {}".format(winrate.data.cpu().item()))
-                if winrate.data.cpu().item() < -0.95:
-                    return "resign"
+                print(winrate)
+                # print("Current winrate: {}".format(winrate.data.cpu().item()))
+                # if winrate.data.cpu().item() < -0.95:
+                #    return "resign"
                 next_vert = self._get_vertex_from_pos(pos)
-                if next_vert.isPass:
-                    return next_vert
+                if next_vert.isPass or rate < self.pass_prob_bound:
+                    return "PASS"
                 try:
                     row = next_vert.row
                     col = next_vert.col
@@ -84,6 +91,8 @@ class NN_Engine():
                             self.board.board[row][col] = None
                             raise ValueError
                     self.board.board[row][col] = None
+                    if self._exist_Ko_fight(row, col, color.abbrev()):
+                        continue
                     simple_ko = self.play( GTPMove(color, next_vert) )
                     for i in range(10):
                         pos = candidate_move[0,i].item()
@@ -93,6 +102,28 @@ class NN_Engine():
                     return next_vert
                 except ValueError:
                     continue
+    def _get_prediction_with_current_status_only(self, isBlack):
+        print("Get NN Prediction")
+        game = np.zeros((18, 19, 19), dtype=np.float32)
+        # construct 18 input feature
+        # get side to move stone
+        side_to_move = 'b' if isBlack else 'w'
+        other_side = 'w' if isBlack else 'b'
+        h = len(self.history)-1
+        if h >= 0:
+            for i in range(19):
+                for j in range(19):
+                    if self.history[h][i][j] == side_to_move:
+                        game[0,i,j] = 1.0
+                    elif self.history[h][i][j] == other_side:
+                        game[8,i,j] = 1.0
+        if isBlack:
+            game[16,:,:] = 1.0
+        else:
+            game[17,:,:] = 1.0
+        game = Variable(torch.from_numpy(game)).to(device)
+        self.model.eval()
+        return self.model.inference(game.unsqueeze(0))
 
     def _get_prediction(self, isBlack):
         print("Get NN Prediction")
@@ -137,3 +168,8 @@ class NN_Engine():
         row = pos//19
         col = pos%19
         return GTPVertex(row, col)
+
+    def _exist_Ko_fight(self, row, col, colour):
+        tmp_board = self.board.copy()
+        tmp_board.play(row,col,colour)
+        return str(tmp_board.list_occupied_points()) in self.previous_plane

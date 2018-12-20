@@ -318,7 +318,7 @@ class NetV5(nn.Module):
         self.bn1 = nn.BatchNorm2d(FILTER_SIZE)
 
         self.res_tower = nn.ModuleList([ResConv(FILTER_SIZE) for _ in range(3)])
-        self.attn_tower = nn.ModuleList([TransformerBlock(FILTER_SIZE) for _ in range(3)])
+        self.attn_tower = nn.ModuleList([TransformerBlock(FILTER_SIZE) for _ in range(2)])
         self.attn_2 = TransformerBlock(FILTER_SIZE)
         
         # policy head
