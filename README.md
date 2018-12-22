@@ -9,11 +9,7 @@ This project implement a Go Engine.
 4. wandb run python main.py
 
 
-## Implementation
-
-You know... TODO
-
-## Some Resources
+## Resources
 
 ### Reference Paper
 
