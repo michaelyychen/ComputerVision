@@ -26,5 +26,3 @@ We should implement [**Go Text Protocol**](http://www.lysator.liu.se/~gunnar/gtp
 ### Dependency 
 ### Handle sgf
         pip3 install sgfmill
-### Processed Data
-https://drive.google.com/drive/folders/1qG6xNuNH-NSjKZMff_PC1SHYkcV0dfeo?usp=sharing
