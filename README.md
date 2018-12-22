@@ -1,6 +1,5 @@
 # Computer Vision Final Project
 
-This project implement a Go Engine.
 
 ## How to Wandb
 1. pip install wandb
