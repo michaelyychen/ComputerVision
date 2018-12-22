@@ -5,19 +5,20 @@ import numpy as np
 from sgfmill.boards import Board
 from gtp import *
 
-from models.Nov15th32.predict import predict
+from models.Nov2038.predict import predict
 
-device = torch.device("cuda")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NN_Go_Engine():
     def __init__(self):
         self.board = Board(19)
+        self.previous_plane = set()
         
 
-        from models.Nov15th32.model import GoNet
+        from models.Nov2038.model import GoNet
         self.model = GoNet(13)
-        model_param = "../models/Nov15th32/model_2_32%.pth"
-        state_dict = torch.load(model_param)
+        model_param = "../models/Nov2038/model_5_38.05.pth"
+        state_dict = torch.load(model_param,map_location='cpu')
         self.model.load_state_dict(state_dict)
         self.model = self.model.to(device)
 
@@ -49,6 +50,8 @@ class NN_Go_Engine():
                 next_vert = self._get_vertex_from_pos(pos)
                 if next_vert.isPass:
                     return next_vert
+                elif rate < 0.06:
+                    return "PASS"
                 try:
                     row = next_vert.row
                     col = next_vert.col
@@ -65,7 +68,10 @@ class NN_Go_Engine():
                             self.board.board[row][col] = None
                             raise ValueError
                     self.board.board[row][col] = None
+                    if self._exist_Ko_fight(row, col, color.abbrev()):
+                        continue
                     self.board.play(row, col, color.abbrev())
+                    self.previous_plane.add(str(self.board.list_occupied_points()))
                     for i in range(10):
                         pos = candidate_move[0,i].item()
                         rate = prob[0,i].exp().item()
@@ -102,3 +108,8 @@ class NN_Go_Engine():
         row = pos//19
         col = pos%19
         return GTPVertex(row, col)
+    
+    def _exist_Ko_fight(self, row, col, colour):
+        tmp_board = self.board.copy()
+        tmp_board.play(row,col,colour)
+        return str(tmp_board.list_occupied_points()) in self.previous_plane 

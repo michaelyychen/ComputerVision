@@ -1,7 +1,5 @@
 # Computer Vision Final Project
 
-This project implement a Go Engine.
-
 ## How to Wandb
 1. pip install wandb
 2. wandb login
@@ -9,11 +7,7 @@ This project implement a Go Engine.
 4. wandb run python main.py
 
 
-## Implementation
-
-You know... TODO
-
-## Some Resources
+## Resources
 
 ### Reference Paper
 
@@ -29,15 +23,6 @@ You know... TODO
 
 We should implement [**Go Text Protocol**](http://www.lysator.liu.se/~gunnar/gtp/) as this seems to be the common protocol used and there is even a library, [KgsGTP](http://www.gokgs.com/download.jsp) to communicate to KGS Go server.
 
-### Datasets
-
-1. https://github.com/yenw/computer-go-dataset#8-leela-zero-dataset
-
-### SpreadSheet
-https://docs.google.com/spreadsheets/d/1-NjOhGRpJHwQ9cG-g5bMRXGC9uE6M0wyL5B4njBk6tU/edit?usp=sharing
-
-### Dependency
+### Dependency 
 ### Handle sgf
         pip3 install sgfmill
-### Processed Data
-https://drive.google.com/drive/folders/1qG6xNuNH-NSjKZMff_PC1SHYkcV0dfeo?usp=sharing
